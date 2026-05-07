@@ -14,6 +14,7 @@
 
 import { BrowserWindow } from 'electron';
 import * as path from 'path';
+import { getAgentConfigs } from '../../utils/store';
 import {
   ProviderFactory,
   ModelRegistry,
@@ -1139,6 +1140,21 @@ export class MessageStreamingHandler {
         // Pre-built prompts from DocumentContextService (for user message additions)
         documentContextPrompt: userMessageAdditions.documentContextPrompt,
         editingInstructions: userMessageAdditions.editingInstructions,
+
+        // Agent config overrides (injected from saved preset if session was started with one)
+        agentConfig: (() => {
+          const configId = (session.metadata as any)?.agentConfigId;
+          if (!configId) return undefined;
+          const configs = getAgentConfigs();
+          const cfg = configs[configId];
+          if (!cfg) return undefined;
+          return {
+            envVars: cfg.envVars,
+            systemPromptPath: cfg.systemPromptPath,
+            effortLevel: cfg.effortLevel,
+            customBinaryPath: cfg.customBinaryPath,
+          };
+        })(),
 
         // Origin of this message (e.g. 'wakeup_resume' for ScheduleWakeup-triggered prompts).
         // The transcript parser uses this to render wakeup resumes as a system marker

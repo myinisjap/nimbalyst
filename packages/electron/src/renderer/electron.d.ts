@@ -1115,6 +1115,14 @@ interface ElectronAPI {
   openImageInDefaultApp: (imagePath: string) => Promise<{ success: boolean; error?: string }>;
   startImageDrag: (imagePath: string) => Promise<{ success: boolean; error?: string }>;
 
+  // Agent configuration presets
+  agentConfigs: {
+    list: () => Promise<Record<string, any>>;
+    get: (id: string) => Promise<any | null>;
+    save: (config: any) => Promise<any>;
+    delete: (id: string) => Promise<void>;
+  };
+
   // Generic IPC methods for services
   invoke: (channel: string, ...args: any[]) => Promise<any>;
   send: (channel: string, ...args: any[]) => void;

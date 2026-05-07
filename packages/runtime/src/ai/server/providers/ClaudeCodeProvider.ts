@@ -608,6 +608,7 @@ export class ClaudeCodeProvider extends BaseAgentProvider {
           permissionsPath,
           mcpConfigWorkspacePath,
           isMetaAgent,
+          agentConfig: (documentContext as any)?.agentConfig,
         }
       );
       const { options, promptInput, promptController } = sdkResult;

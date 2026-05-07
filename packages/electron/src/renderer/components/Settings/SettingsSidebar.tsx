@@ -28,7 +28,8 @@ export type SettingsCategory =
   | 'marketplace'
   | 'installed'
   | 'team'
-  | 'tracker-config';
+  | 'tracker-config'
+  | 'agent-configs';
 
 interface CategoryGroup {
   title: string;
@@ -96,6 +97,11 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({
           id: 'themes',
           name: 'Themes',
           icon: <MaterialSymbol icon="palette" size={16} />,
+        },
+        {
+          id: 'agent-configs',
+          name: 'Agent Configs',
+          icon: <MaterialSymbol icon="smart_toy" size={16} />,
         },
         {
           id: 'advanced',

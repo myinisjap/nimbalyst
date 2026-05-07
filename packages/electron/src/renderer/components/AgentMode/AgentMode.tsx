@@ -13,7 +13,8 @@
 
 import React, { forwardRef, useImperativeHandle, useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
-import { defaultAgentModelAtom, worktreesFeatureAvailableAtom, alphaFeatureEnabledAtom } from '../../store/atoms/appSettings';
+import { defaultAgentModelAtom, worktreesFeatureAvailableAtom, alphaFeatureEnabledAtom, agentConfigListAtom, type AgentConfig } from '../../store/atoms/appSettings';
+import { useFloating, offset, flip, shift, FloatingPortal } from '@floating-ui/react';
 import { ModelIdentifier } from '@nimbalyst/runtime/ai/server/types';
 import { ResizablePanel } from '../AgenticCoding/ResizablePanel';
 import { SessionHistory } from '../AgenticCoding/SessionHistory';
@@ -147,6 +148,16 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
 
   // Default model for new sessions (user's last selected model)
   const defaultModel = useAtomValue(defaultAgentModelAtom);
+
+  // Saved agent config presets
+  const agentConfigList = useAtomValue(agentConfigListAtom);
+
+  // Picker state for the "New Session" button
+  const [showConfigPicker, setShowConfigPicker] = useState(false);
+  const { refs: pickerRefs, floatingStyles: pickerStyles } = useFloating({
+    placement: 'bottom-start',
+    middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+  });
 
   // Shares state
   const fetchShares = useSetAtom(fetchSessionSharesAtom);
@@ -297,22 +308,23 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
     }
   }, [isActive, actualActiveSessionId, selectedWorkstream?.id, activeChildId, pushNavigationEntry, isRestoringNavigation]);
 
-  // Create new session
-  const createNewSession = useCallback(async (initialDraft?: string): Promise<string | undefined> => {
+  // Create new session, optionally with a saved agent config preset
+  const createNewSession = useCallback(async (initialDraft?: string, agentConfig?: AgentConfig): Promise<string | undefined> => {
     if (!window.electronAPI) return undefined;
 
     try {
       const sessionId = crypto.randomUUID();
-      // Parse provider from defaultModel using ModelIdentifier
-      const parsedModel = defaultModel ? ModelIdentifier.tryParse(defaultModel) : null;
-      const provider = parsedModel?.provider || 'claude-code';
-      // console.log('[AgentMode] Creating new session with defaultModel:', defaultModel, 'provider:', provider);
+      // Use config's provider/model if provided, otherwise fall back to user default
+      const effectiveModel = agentConfig?.model || defaultModel;
+      const parsedModel = effectiveModel ? ModelIdentifier.tryParse(effectiveModel) : null;
+      const provider = agentConfig?.provider || parsedModel?.provider || 'claude-code';
       const result = await window.electronAPI.invoke('sessions:create', {
         session: {
           id: sessionId,
           provider,
-          model: defaultModel,
+          model: effectiveModel,
           title: 'New Session',
+          ...(agentConfig && { metadata: { agentConfigId: agentConfig.id } }),
         },
         workspaceId: workspacePath,
       });
@@ -325,7 +337,7 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
           createdAt: Date.now(),
           updatedAt: Date.now(),
           provider,
-          model: defaultModel,
+          model: effectiveModel,
           sessionType: 'session',
           messageCount: 0,
           workspaceId: workspacePath,
@@ -1041,12 +1053,53 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
   ) : (
     <div className="agent-mode-empty flex flex-col items-center justify-center h-full gap-4 text-nim-muted">
       <p className="m-0 text-sm">Select a session or create a new one to get started</p>
-      <button
-        onClick={() => createNewSession()}
-        className="agent-mode-new-button py-2 px-4 rounded-md border border-nim-border bg-nim-bg-secondary text-nim cursor-pointer text-sm transition-colors hover:bg-nim-bg-active"
-      >
-        New Session
-      </button>
+      <div className="relative">
+        <button
+          ref={pickerRefs.setReference}
+          onClick={() => {
+            if (agentConfigList.length > 0) {
+              setShowConfigPicker((v) => !v);
+            } else {
+              createNewSession();
+            }
+          }}
+          className="agent-mode-new-button py-2 px-4 rounded-md border border-nim-border bg-nim-bg-secondary text-nim cursor-pointer text-sm transition-colors hover:bg-nim-bg-active"
+          data-testid="agent-mode-new-session-btn"
+        >
+          New Session
+          {agentConfigList.length > 0 && <span className="ml-1 opacity-50">▾</span>}
+        </button>
+        {showConfigPicker && agentConfigList.length > 0 && (
+          <FloatingPortal>
+            <div
+              ref={pickerRefs.setFloating}
+              style={pickerStyles}
+              className="agent-config-picker z-50 min-w-[200px] rounded-lg border border-[var(--nim-border)] bg-[var(--nim-bg-primary)] shadow-lg py-1"
+              data-testid="agent-config-picker"
+            >
+              <button
+                className="w-full text-left px-3 py-2 text-sm text-[var(--nim-text)] hover:bg-[var(--nim-bg-secondary)]"
+                onClick={() => { setShowConfigPicker(false); createNewSession(); }}
+                data-testid="agent-config-picker-default"
+              >
+                Default
+              </button>
+              <div className="h-px bg-[var(--nim-border)] my-1" />
+              {agentConfigList.map((cfg) => (
+                <button
+                  key={cfg.id}
+                  className="w-full text-left px-3 py-2 text-sm text-[var(--nim-text)] hover:bg-[var(--nim-bg-secondary)]"
+                  onClick={() => { setShowConfigPicker(false); createNewSession(undefined, cfg); }}
+                  data-testid={`agent-config-picker-${cfg.id}`}
+                >
+                  <div className="font-medium">{cfg.name}</div>
+                  {cfg.description && <div className="text-xs text-[var(--nim-text-muted)]">{cfg.description}</div>}
+                </button>
+              ))}
+            </div>
+          </FloatingPortal>
+        )}
+      </div>
     </div>
   );
 

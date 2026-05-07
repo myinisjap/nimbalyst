@@ -30,6 +30,7 @@ import { PrivilegedExtensionsPanel } from './panels/PrivilegedExtensionsPanel';
 import { ThemesPanel } from './panels/ThemesPanel';
 import { TeamPanel } from './panels/TeamPanel';
 import { TrackerConfigPanel } from './panels/TrackerConfigPanel';
+import { AgentConfigsPanel } from './panels/AgentConfigsPanel';
 import { ExtensionMarketplacePanel } from './panels/ExtensionMarketplacePanel';
 import { walkthroughs } from '../../walkthroughs';
 import {
@@ -147,7 +148,7 @@ export function SettingsView({
 
   // Valid categories for each scope
   const projectCategories: SettingsCategory[] = ['agent-permissions', 'team', 'tracker-config', 'installed-extensions', 'claude-plugins', 'mcp-servers', 'claude-code', 'claude', 'openai', 'openai-codex', 'opencode', 'copilot-cli', 'lmstudio'];
-  const userCategories: SettingsCategory[] = ['claude-code', 'claude', 'openai', 'openai-codex', 'opencode', 'copilot-cli', 'lmstudio', 'sync', 'notifications', 'voice-mode', 'agent-features', 'advanced', 'marketplace', 'installed-extensions', 'claude-plugins', 'mcp-servers'];
+  const userCategories: SettingsCategory[] = ['claude-code', 'claude', 'openai', 'openai-codex', 'opencode', 'copilot-cli', 'lmstudio', 'sync', 'notifications', 'voice-mode', 'agent-features', 'advanced', 'agent-configs', 'marketplace', 'installed-extensions', 'claude-plugins', 'mcp-servers'];
 
   // When initialCategory/initialScope props change, update state (for deep linking)
   useEffect(() => {
@@ -609,6 +610,8 @@ export function SettingsView({
         return <TeamPanel workspacePath={workspacePath ?? undefined} />;
       case 'tracker-config':
         return <TrackerConfigPanel workspacePath={workspacePath ?? undefined} />;
+      case 'agent-configs':
+        return <AgentConfigsPanel />;
       case 'marketplace':
         return (
           <ExtensionMarketplacePanel

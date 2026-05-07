@@ -1564,6 +1564,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('terminal:create-session', { workspacePath, ...options }),
   },
 
+  // Agent configuration presets
+  agentConfigs: {
+    list: () => ipcRenderer.invoke('agent-configs:list'),
+    get: (id: string) => ipcRenderer.invoke('agent-configs:get', id),
+    save: (config: any) => ipcRenderer.invoke('agent-configs:save', config),
+    delete: (id: string) => ipcRenderer.invoke('agent-configs:delete', id),
+  },
+
   // Generic IPC methods for services that need them
   invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
   send: (channel: string, ...args: any[]) => ipcRenderer.send(channel, ...args),

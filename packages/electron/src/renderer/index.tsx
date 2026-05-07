@@ -42,6 +42,8 @@ import {
   initExternalEditorSettings,
   debugFlagsAtom,
   initDebugFlags,
+  agentConfigsAtom,
+  initAgentConfigs,
 } from './store/atoms/appSettings';
 import {
   claudeUsageIndicatorEnabledAtom,
@@ -167,6 +169,9 @@ await Promise.allSettled([
   }),
   initDebugFlags().then((flags) => {
     store.set(debugFlagsAtom, flags);
+  }),
+  initAgentConfigs().then((configs) => {
+    store.set(agentConfigsAtom, configs);
   }),
 ]);
 

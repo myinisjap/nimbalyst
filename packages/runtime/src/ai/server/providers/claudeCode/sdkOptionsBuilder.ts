@@ -8,6 +8,7 @@
 
 import type { ContentBlockParam, TextBlockParam, MessageParam } from '@anthropic-ai/sdk/resources';
 import path from 'path';
+import { readFileSync } from 'fs';
 import { app } from 'electron';
 import { ClaudeCodeDeps } from './dependencyInjection';
 import { resolveClaudeAgentCliPath } from './cliPathResolver';
@@ -38,6 +39,13 @@ export interface BuildSdkOptionsDeps {
   abortController: AbortController;
 }
 
+export interface AgentConfigOverrides {
+  envVars?: Record<string, string>;
+  systemPromptPath?: string;
+  effortLevel?: string;
+  customBinaryPath?: string;
+}
+
 export interface BuildSdkOptionsParams {
   message: string;
   workspacePath: string;
@@ -52,6 +60,7 @@ export interface BuildSdkOptionsParams {
   permissionsPath?: string;
   mcpConfigWorkspacePath?: string;
   isMetaAgent?: boolean;
+  agentConfig?: AgentConfigOverrides;
 }
 
 /**
@@ -139,14 +148,28 @@ export async function buildSdkOptions(
     documentContext,
     settingsEnv,
     shellEnv,
-    systemPrompt,
+    systemPrompt: baseSystemPrompt,
     currentMode,
     imageContentBlocks,
     documentContentBlocks,
     permissionsPath,
     mcpConfigWorkspacePath,
     isMetaAgent,
+    agentConfig,
   } = params;
+
+  // Apply agentConfig system prompt path addition
+  let systemPrompt = baseSystemPrompt;
+  if (agentConfig?.systemPromptPath) {
+    try {
+      const addition = readFileSync(agentConfig.systemPromptPath, 'utf8').trim();
+      if (addition) {
+        systemPrompt = systemPrompt ? `${systemPrompt}\n\n${addition}` : addition;
+      }
+    } catch (err) {
+      console.warn(`[CLAUDE-CODE] Failed to read agentConfig.systemPromptPath: ${agentConfig.systemPromptPath}`, err);
+    }
+  }
 
   let helperMethod: 'native' | 'custom' = 'native';
 
@@ -345,6 +368,22 @@ export async function buildSdkOptions(
     if (teammateManager.packagedBuildOptions?.env) {
       teammateManager.packagedBuildOptions.env.ANTHROPIC_API_KEY = config.apiKey;
     }
+  }
+
+  // Apply agentConfig env var overrides (after API key injection so they can't clobber keys)
+  if (agentConfig?.envVars) {
+    const { ANTHROPIC_API_KEY: _a, OPENAI_API_KEY: _b, ...safeOverrides } = agentConfig.envVars;
+    Object.assign(env, safeOverrides);
+  }
+
+  // Apply agentConfig effort level override
+  if (agentConfig?.effortLevel) {
+    env.CLAUDE_CODE_EFFORT_LEVEL = agentConfig.effortLevel;
+  }
+
+  // Apply agentConfig custom binary path override
+  if (agentConfig?.customBinaryPath) {
+    options.pathToClaudeCodeExecutable = agentConfig.customBinaryPath;
   }
 
   options.env = env;

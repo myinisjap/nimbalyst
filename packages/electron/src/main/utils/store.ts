@@ -27,6 +27,24 @@ export interface TrackerSyncPolicySetting {
 }
 
 /**
+ * A saved agent configuration preset.
+ * Stores provider/model identity plus runtime overrides applied when a session using this config sends a message.
+ */
+export interface AgentConfig {
+  id: string;
+  name: string;
+  description?: string;
+  provider: string;
+  model: string;
+  envVars?: Record<string, string>;
+  systemPromptPath?: string;
+  effortLevel?: string;
+  customBinaryPath?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
  * Extension settings stored per extension.
  * Tracks enabled state and extension-specific configuration.
  */
@@ -219,6 +237,8 @@ interface AppStoreSchema {
   // seeded only with the project the user picks from the launch screen
   // — additional projects must be added explicitly.
   restorePreviousProjectsOnLaunch?: boolean;
+  // Saved agent configuration presets
+  agentConfigs?: Record<string, AgentConfig>;
 }
 
 /**
@@ -1525,6 +1545,28 @@ export function getExtensionSettings(): Record<string, ExtensionSettings> {
 
 export function setExtensionSettings(settings: Record<string, ExtensionSettings>): void {
   getAppStore().set('extensionSettings', settings);
+}
+
+// Agent Config Management
+export function getAgentConfigs(): Record<string, AgentConfig> {
+  return getAppStore().get('agentConfigs', {});
+}
+
+export function setAgentConfigs(configs: Record<string, AgentConfig>): void {
+  getAppStore().set('agentConfigs', configs);
+}
+
+export function saveAgentConfig(config: AgentConfig): AgentConfig {
+  const configs = getAgentConfigs();
+  configs[config.id] = config;
+  setAgentConfigs(configs);
+  return config;
+}
+
+export function deleteAgentConfig(id: string): void {
+  const configs = getAgentConfigs();
+  delete configs[id];
+  setAgentConfigs(configs);
 }
 
 /**
