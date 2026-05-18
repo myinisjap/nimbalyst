@@ -31,9 +31,7 @@ import {
   addSessionFullAtom,
   type SessionMeta,
 } from '../../store';
-import { alphaFeatureEnabledAtom } from '../../store/atoms/appSettings';
-import { worktreeDisplayNameUpdateAtom } from '../../store/atoms/worktrees';
-import { blitzCreatedAtom, blitzDisplayNameUpdateAtom } from '../../store/atoms/blitz';
+import { alphaFeatureEnabledAtom, worktreesFeatureAvailableAtom, agentConfigListAtom, type AgentConfig } from '../../store/atoms/appSettings';
 import { superLoopListAtom, upsertSuperLoopAtom, removeSuperLoopAtom } from '../../store/atoms/superLoop';
 import { useSuperLoopDialog } from '../../hooks/useSuperLoop';
 import { workspaceSessionTurnActivityAtom } from '../../store/atoms/sessionActivity';
@@ -180,7 +178,7 @@ interface SessionHistoryProps {
   onSessionArchive?: (sessionId: string) => void; // Callback when session is archived (to close tab)
   onSessionRename?: (sessionId: string, newName: string) => void; // Callback when session is renamed
   onSessionBranch?: (sessionId: string) => void; // Callback when user wants to branch a session
-  onNewSession?: () => void;
+  onNewSession?: (agentConfig?: AgentConfig) => void;
   onNewTerminal?: () => void; // Callback for creating a new terminal session
   onNewWorktreeSession?: (options?: { baseBranch?: string; name?: string }) => void | Promise<void>; // Callback for creating new worktree session
   onNewBlitz?: () => void; // Callback for creating a new blitz (multi-worktree prompt)
@@ -253,6 +251,9 @@ const SessionHistoryComponent: React.FC<SessionHistoryProps> = ({
   const upsertSuperLoop = useSetAtom(upsertSuperLoopAtom);
   const removeSuperLoop = useSetAtom(removeSuperLoopAtom);
   const { openDialog: openSuperLoopDialog } = useSuperLoopDialog();
+
+  // === Agent config presets ===
+  const agentConfigList = useAtomValue(agentConfigListAtom);
 
   // === Meta-agent session creation ===
   const defaultAgentModel = useAtomValue(defaultAgentModelAtom);
@@ -943,45 +944,55 @@ const SessionHistoryComponent: React.FC<SessionHistoryProps> = ({
     }
   }, [renamedWorktree]);
 
-  // React to worktree display-name updates broadcast by main. The IPC event
-  // is handled centrally in store/listeners/worktreeListeners.ts which writes
-  // worktreeDisplayNameUpdateAtom; we merge the update into our local cache
-  // when the worktree is one we know about, skipping the initial-mount value.
-  const worktreeDisplayNameUpdate = useAtomValue(worktreeDisplayNameUpdateAtom);
-  const initialWorktreeDisplayNameUpdateRef = useRef(worktreeDisplayNameUpdate);
+  // Listen for worktree display name updates from main process
+  // This handles automatic worktree naming when first session in worktree is named
   useEffect(() => {
     if (!workspacePath) return;
-    if (worktreeDisplayNameUpdate === initialWorktreeDisplayNameUpdateRef.current) return;
-    if (!worktreeDisplayNameUpdate) return;
-    const { worktreeId, displayName } = worktreeDisplayNameUpdate.payload;
-    setWorktreeCache(prev => {
-      const existing = prev.get(worktreeId);
-      if (!existing) return prev;
-      const updated = new Map(prev);
-      updated.set(worktreeId, { ...existing, displayName });
-      return updated;
-    });
-  }, [worktreeDisplayNameUpdate, workspacePath]);
 
-  // React to blitz display-name updates broadcast by main. The IPC event is
-  // handled centrally in store/listeners/blitzListeners.ts which writes
-  // blitzDisplayNameUpdateAtom; we merge the update into our local cache when
-  // the blitz is one we know about, skipping the initial-mount value.
-  const blitzDisplayNameUpdate = useAtomValue(blitzDisplayNameUpdateAtom);
-  const initialBlitzDisplayNameUpdateRef = useRef(blitzDisplayNameUpdate);
+    const unsubscribe = window.electronAPI?.on?.('worktree:display-name-updated',
+      (data: { worktreeId: string; displayName: string }) => {
+        setWorktreeCache(prev => {
+          const existing = prev.get(data.worktreeId);
+          if (existing) {
+            const updated = new Map(prev);
+            updated.set(data.worktreeId, {
+              ...existing,
+              displayName: data.displayName
+            });
+            return updated;
+          }
+          return prev;
+        });
+      }
+    );
+
+    return () => unsubscribe?.();
+  }, [workspacePath]);
+
+  // Listen for blitz display name updates from main process
+  // This handles automatic blitz naming when first session in any blitz worktree is named
   useEffect(() => {
     if (!workspacePath) return;
-    if (blitzDisplayNameUpdate === initialBlitzDisplayNameUpdateRef.current) return;
-    if (!blitzDisplayNameUpdate) return;
-    const { blitzId, displayName } = blitzDisplayNameUpdate.payload;
-    setBlitzCache(prev => {
-      const existing = prev.get(blitzId);
-      if (!existing) return prev;
-      const updated = new Map(prev);
-      updated.set(blitzId, { ...existing, displayName });
-      return updated;
-    });
-  }, [blitzDisplayNameUpdate, workspacePath]);
+
+    const unsubscribe = window.electronAPI?.on?.('blitz:display-name-updated',
+      (data: { blitzId: string; displayName: string }) => {
+        setBlitzCache(prev => {
+          const existing = prev.get(data.blitzId);
+          if (existing) {
+            const updated = new Map(prev);
+            updated.set(data.blitzId, {
+              ...existing,
+              displayName: data.displayName
+            });
+            return updated;
+          }
+          return prev;
+        });
+      }
+    );
+
+    return () => unsubscribe?.();
+  }, [workspacePath]);
 
   // Update session timestamp when updated (efficient update without database reload)
   useEffect(() => {
@@ -2400,24 +2411,22 @@ const SessionHistoryComponent: React.FC<SessionHistoryProps> = ({
     }
   }, [workspacePath]);
 
-  // Initial fetch on workspace change.
+  // Initial fetch + re-fetch when blitz:created event fires
   useEffect(() => {
     if (!workspacePath) return;
-    fetchBlitzes();
-  }, [workspacePath, fetchBlitzes]);
 
-  // Re-fetch when a `blitz:created` event arrives for this workspace. The
-  // IPC event is handled centrally in store/listeners/blitzListeners.ts which
-  // writes blitzCreatedAtom; we skip the initial-mount value so we don't
-  // double-fetch alongside the effect above.
-  const blitzCreated = useAtomValue(blitzCreatedAtom);
-  const initialBlitzCreatedRef = useRef(blitzCreated);
-  useEffect(() => {
-    if (!workspacePath) return;
-    if (blitzCreated === initialBlitzCreatedRef.current) return;
-    if (!blitzCreated || blitzCreated.payload.workspacePath !== workspacePath) return;
     fetchBlitzes();
-  }, [blitzCreated, workspacePath, fetchBlitzes]);
+
+    const unsubscribe = window.electronAPI?.on?.('blitz:created',
+      (data: { blitzId: string; workspacePath: string }) => {
+        if (data.workspacePath === workspacePath) {
+          fetchBlitzes();
+        }
+      }
+    );
+
+    return () => unsubscribe?.();
+  }, [workspacePath, fetchBlitzes]);
 
   // Fetch children for expanded workstreams
   useEffect(() => {
@@ -2741,17 +2750,33 @@ const SessionHistoryComponent: React.FC<SessionHistoryProps> = ({
         {...newDropdownMenu.getFloatingProps()}
       >
       {onNewSession && (
-        <button
-          className="session-history-new-option flex items-center w-full px-3 py-2 text-[13px] bg-transparent border-none text-[var(--nim-text)] cursor-pointer transition-colors duration-150 text-left gap-2 hover:bg-[var(--nim-bg-hover)] [&_svg]:shrink-0 [&_svg]:text-[var(--nim-text-muted)] [&>span]:flex-1"
-          data-testid="new-session-button"
-          onClick={() => { onNewSession(); newDropdownMenu.setIsOpen(false); }}
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          <span>New Session</span>
-          <span className="session-history-new-option-shortcut flex-none text-[11px] text-[var(--nim-text-muted)] opacity-70">{getShortcutDisplay(KeyboardShortcuts.file.newSession)}</span>
-        </button>
+        <>
+          <button
+            className="session-history-new-option flex items-center w-full px-3 py-2 text-[13px] bg-transparent border-none text-[var(--nim-text)] cursor-pointer transition-colors duration-150 text-left gap-2 hover:bg-[var(--nim-bg-hover)] [&_svg]:shrink-0 [&_svg]:text-[var(--nim-text-muted)] [&>span]:flex-1"
+            data-testid="new-session-button"
+            onClick={() => { onNewSession(); newDropdownMenu.setIsOpen(false); }}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            <span>New Session</span>
+            <span className="session-history-new-option-shortcut flex-none text-[11px] text-[var(--nim-text-muted)] opacity-70">{getShortcutDisplay(KeyboardShortcuts.file.newSession)}</span>
+          </button>
+          {agentConfigList.map((cfg) => (
+            <button
+              key={cfg.id}
+              className="session-history-new-option flex items-center w-full px-3 py-2 text-[13px] bg-transparent border-none text-[var(--nim-text)] cursor-pointer transition-colors duration-150 text-left gap-2 hover:bg-[var(--nim-bg-hover)] [&_svg]:shrink-0 [&_svg]:text-[var(--nim-text-muted)] [&>span]:flex-1"
+              data-testid={`new-session-config-${cfg.id}`}
+              onClick={() => { onNewSession(cfg); newDropdownMenu.setIsOpen(false); }}
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <span>{cfg.name}</span>
+              {cfg.tags && cfg.tags.length > 0 && <span className="flex-none text-[11px] text-[var(--nim-text-muted)] opacity-70 truncate max-w-[120px]">{cfg.tags.join(', ')}</span>}
+            </button>
+          ))}
+        </>
       )}
       {onNewWorktreeSession && (
         <button

@@ -318,12 +318,13 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
       const effectiveModel = agentConfig?.model || defaultModel;
       const parsedModel = effectiveModel ? ModelIdentifier.tryParse(effectiveModel) : null;
       const provider = agentConfig?.provider || parsedModel?.provider || 'claude-code';
+      const title = agentConfig?.name || 'New Session';
       const result = await window.electronAPI.invoke('sessions:create', {
         session: {
           id: sessionId,
           provider,
           model: effectiveModel,
-          title: 'New Session',
+          title,
           ...(agentConfig && { metadata: { agentConfigId: agentConfig.id } }),
         },
         workspaceId: workspacePath,
@@ -333,7 +334,7 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
         // Add to session list
         addSession({
           id: result.id,
-          title: 'New Session',
+          title,
           createdAt: Date.now(),
           updatedAt: Date.now(),
           provider,
@@ -1093,7 +1094,7 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
                   data-testid={`agent-config-picker-${cfg.id}`}
                 >
                   <div className="font-medium">{cfg.name}</div>
-                  {cfg.description && <div className="text-xs text-[var(--nim-text-muted)]">{cfg.description}</div>}
+                  {cfg.tags && cfg.tags.length > 0 && <div className="text-xs text-[var(--nim-text-muted)]">{cfg.tags.join(', ')}</div>}
                 </button>
               ))}
             </div>
@@ -1116,7 +1117,7 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
       onSessionRename={handleSessionRename}
       renamedSession={renamedSession}
       onSessionBranch={handleSessionBranch}
-      onNewSession={createNewSession}
+      onNewSession={(agentConfig) => createNewSession(undefined, agentConfig)}
       onNewWorktreeSession={isWorktreesAvailable ? createNewWorktreeSession : undefined}
       onNewBlitz={isBlitzAvailable ? createNewBlitz : undefined}
       onAddSessionToWorktree={isWorktreesAvailable ? addSessionToWorktree : undefined}

@@ -33,7 +33,7 @@ export interface TrackerSyncPolicySetting {
 export interface AgentConfig {
   id: string;
   name: string;
-  description?: string;
+  tags?: string[];
   provider: string;
   model: string;
   envVars?: Record<string, string>;

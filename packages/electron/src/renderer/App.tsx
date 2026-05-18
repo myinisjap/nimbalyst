@@ -185,6 +185,7 @@ import {
   initTrackerPanelLayout,
   trackerModeLayoutAtom,
 } from './store/atoms/trackers';
+import { initSessionKanbanLayout } from './store/atoms/sessionKanban';
 import {
   terminalPanelVisibleAtom,
   terminalPanelHeightAtom,
@@ -699,6 +700,7 @@ export default function App() {
   useEffect(() => {
     if (workspacePath) {
       initTrackerPanelLayout(workspacePath);
+      initSessionKanbanLayout(workspacePath);
     }
   }, [workspacePath]);
 

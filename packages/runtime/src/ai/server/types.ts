@@ -57,6 +57,13 @@ export interface DocumentContext {
   documentContextPrompt?: string;  // File path, cursor, selection, content/diff, transitions
   editingInstructions?: string;    // One-time editing instructions (only first message with doc)
 
+  // Agent config overrides (injected from saved preset if session was started with one)
+  agentConfig?: {
+    envVars?: Record<string, string>;
+    systemPromptPath?: string;
+    effortLevel?: string;
+    customBinaryPath?: string;
+  };
   /** Identifies the origin of this message when it comes from an automated source (e.g. 'wakeup_resume'). */
   promptOrigin?: string;
 }

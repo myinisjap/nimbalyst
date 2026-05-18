@@ -11,6 +11,7 @@
 
 import { atom } from 'jotai';
 import { atomFamily } from '../debug/atomFamilyRegistry';
+import { store } from '@nimbalyst/runtime/store';
 import type { SessionMeta } from '@nimbalyst/runtime';
 import {
   sessionRegistryAtom,
@@ -104,13 +105,25 @@ export interface SessionKanbanFilter {
   search: string;
   tags: string[];
   showComplete: boolean;
+  /** Per-column agent config overrides — when a card is dropped into the column, its agentConfigId is set to this value */
+  columnAgentConfigs: Record<SessionPhaseKey, string | null>;
 }
+
+const DEFAULT_COLUMN_AGENT_CONFIGS: Record<SessionPhaseKey, string | null> = {
+  unphased: null,
+  backlog: null,
+  planning: null,
+  implementing: null,
+  validating: null,
+  complete: null,
+};
 
 /** Filter state for the kanban board */
 export const sessionKanbanFilterAtom = atom<SessionKanbanFilter>({
   search: '',
   tags: [],
   showComplete: true,
+  columnAgentConfigs: DEFAULT_COLUMN_AGENT_CONFIGS,
 });
 
 // ============================================================
@@ -294,6 +307,67 @@ export const setSessionTagsAtom = atom(
         revertRegistry.set(sessionId, meta);
         set(sessionRegistryAtom, revertRegistry);
       }
+    }
+  }
+);
+
+// ============================================================
+// Column Agent Config Persistence
+// ============================================================
+
+let currentKanbanWorkspacePath: string | null = null;
+let kanbanColumnConfigPersistTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Initialize session kanban column agent config mapping from workspace state.
+ * Call this when workspace path is known.
+ */
+export async function initSessionKanbanLayout(workspacePath: string): Promise<void> {
+  currentKanbanWorkspacePath = workspacePath;
+
+  try {
+    const workspaceState = await window.electronAPI.invoke('workspace:get-state', workspacePath);
+    const saved = workspaceState?.sessionKanbanColumnAgentConfigs;
+
+    if (saved && typeof saved === 'object') {
+      const existing = store.get(sessionKanbanFilterAtom);
+      const merged = { ...existing, columnAgentConfigs: { ...DEFAULT_COLUMN_AGENT_CONFIGS, ...saved } };
+      store.set(sessionKanbanFilterAtom, merged);
+    }
+  } catch (err) {
+    console.error('[sessionKanban] Failed to load column agent configs:', err);
+  }
+}
+
+function scheduleColumnConfigPersist(workspacePath: string, configs: Record<SessionPhaseKey, string | null>): void {
+  if (kanbanColumnConfigPersistTimer) clearTimeout(kanbanColumnConfigPersistTimer);
+  kanbanColumnConfigPersistTimer = setTimeout(async () => {
+    try {
+      await window.electronAPI.invoke('workspace:update-state', workspacePath, {
+        sessionKanbanColumnAgentConfigs: configs,
+      });
+    } catch (err) {
+      console.error('[sessionKanban] Failed to persist column agent configs:', err);
+    }
+  }, 300);
+}
+
+/**
+ * Set column agent config mappings and persist them.
+ * @param partialMap - Partial Record<SessionPhaseKey, string | null> to merge in
+ */
+export const setColumnAgentConfigsAtom = atom(
+  null,
+  (get, set, partialMap: Partial<Record<SessionPhaseKey, string | null>>) => {
+    const current = get(sessionKanbanFilterAtom);
+    const next = {
+      ...current,
+      columnAgentConfigs: { ...current.columnAgentConfigs, ...partialMap },
+    };
+    set(sessionKanbanFilterAtom, next);
+
+    if (currentKanbanWorkspacePath) {
+      scheduleColumnConfigPersist(currentKanbanWorkspacePath, next.columnAgentConfigs);
     }
   }
 );

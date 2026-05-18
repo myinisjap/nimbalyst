@@ -37,6 +37,8 @@ export interface SessionMeta {
   branchedFromSessionId?: string;
   branchPointMessageId?: number;
   branchedAt?: number;
+  // Saved agent config preset used when this session was created/advanced
+  agentConfigId?: string;
 }
 
 /** @deprecated Use SessionMeta */

@@ -4,7 +4,10 @@ import { MaterialSymbol } from '@nimbalyst/runtime';
 import {
   agentConfigsAtom,
   agentConfigListAtom,
+  availableModelsAtom,
+  defaultAgentModelAtom,
   type AgentConfig,
+  type AIModel,
 } from '../../../store/atoms/appSettings';
 
 // ============================================================
@@ -93,6 +96,65 @@ function EnvVarEditor({ value, onChange }: EnvVarEditorProps) {
 }
 
 // ============================================================
+// Tags Editor
+// ============================================================
+
+interface TagsEditorProps {
+  value: string[];
+  onChange: (tags: string[]) => void;
+}
+
+function TagsEditor({ value, onChange }: TagsEditorProps) {
+  const [input, setInput] = React.useState('');
+
+  const addTag = () => {
+    const tag = input.trim();
+    if (tag && !value.includes(tag)) {
+      onChange([...value, tag]);
+    }
+    setInput('');
+  };
+
+  const removeTag = (tag: string) => {
+    onChange(value.filter((t) => t !== tag));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag();
+    } else if (e.key === 'Backspace' && input === '' && value.length > 0) {
+      onChange(value.slice(0, -1));
+    }
+  };
+
+  return (
+    <div className="agent-config-tags-editor flex flex-wrap gap-1 p-1.5 rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] focus-within:border-[var(--nim-primary)] min-h-[34px]">
+      {value.map((tag) => (
+        <span key={tag} className="flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded bg-[var(--nim-bg-tertiary)] text-[var(--nim-text)]">
+          {tag}
+          <button
+            type="button"
+            onClick={() => removeTag(tag)}
+            className="text-[var(--nim-text-muted)] hover:text-[var(--nim-text)] ml-0.5"
+          >
+            <MaterialSymbol icon="close" size={11} />
+          </button>
+        </span>
+      ))}
+      <input
+        className="flex-1 min-w-[80px] bg-transparent text-xs text-[var(--nim-text)] placeholder-[var(--nim-text-muted)] outline-none"
+        placeholder={value.length === 0 ? 'Add tags...' : ''}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={addTag}
+      />
+    </div>
+  );
+}
+
+// ============================================================
 // Edit Form
 // ============================================================
 
@@ -102,14 +164,16 @@ interface EditFormProps {
   onSave: () => void;
   onCancel: () => void;
   isNew: boolean;
+  availableModels: Record<string, AIModel[]>;
 }
 
-function EditForm({ config, onChange, onSave, onCancel, isNew }: EditFormProps) {
+function EditForm({ config, onChange, onSave, onCancel, isNew, availableModels }: EditFormProps) {
   const set = (field: keyof AgentConfig, value: any) =>
     onChange({ ...config, [field]: value });
 
   const showEffortLevel = config.provider === 'claude-code';
   const showBinaryPath = ['claude-code', 'openai-codex', 'opencode'].includes(config.provider ?? '');
+  const providerModels = availableModels[config.provider ?? ''] ?? [];
 
   return (
     <div className="agent-config-edit-form flex flex-col gap-4">
@@ -125,12 +189,10 @@ function EditForm({ config, onChange, onSave, onCancel, isNew }: EditFormProps) 
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-[var(--nim-text-muted)]">Description</label>
-        <input
-          className="px-2 py-1.5 text-sm rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] text-[var(--nim-text)] focus:outline-none focus:border-[var(--nim-primary)]"
-          placeholder="Optional note"
-          value={config.description ?? ''}
-          onChange={(e) => set('description', e.target.value)}
+        <label className="text-xs font-medium text-[var(--nim-text-muted)]">Tags</label>
+        <TagsEditor
+          value={config.tags ?? []}
+          onChange={(tags) => set('tags', tags.length > 0 ? tags : undefined)}
         />
       </div>
 
@@ -140,7 +202,11 @@ function EditForm({ config, onChange, onSave, onCancel, isNew }: EditFormProps) 
           <select
             className="px-2 py-1.5 text-sm rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] text-[var(--nim-text)] focus:outline-none focus:border-[var(--nim-primary)]"
             value={config.provider ?? 'claude-code'}
-            onChange={(e) => set('provider', e.target.value)}
+            onChange={(e) => {
+              const newProvider = e.target.value;
+              const firstModel = availableModels[newProvider]?.[0]?.id;
+              onChange({ ...config, provider: newProvider, model: firstModel ?? config.model });
+            }}
             data-testid="agent-config-provider-select"
           >
             {AGENT_PROVIDERS.map((p) => (
@@ -151,13 +217,29 @@ function EditForm({ config, onChange, onSave, onCancel, isNew }: EditFormProps) 
 
         <div className="flex flex-col gap-1 flex-1">
           <label className="text-xs font-medium text-[var(--nim-text-muted)]">Model</label>
-          <input
-            className="px-2 py-1.5 text-sm rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] text-[var(--nim-text)] placeholder-[var(--nim-text-muted)] focus:outline-none focus:border-[var(--nim-primary)]"
-            placeholder="e.g. claude-code:opus-1m"
-            value={config.model ?? ''}
-            onChange={(e) => set('model', e.target.value)}
-            data-testid="agent-config-model-input"
-          />
+          {providerModels.length > 0 ? (
+            <select
+              className="px-2 py-1.5 text-sm rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] text-[var(--nim-text)] focus:outline-none focus:border-[var(--nim-primary)]"
+              value={config.model ?? ''}
+              onChange={(e) => set('model', e.target.value)}
+              data-testid="agent-config-model-select"
+            >
+              {!providerModels.some((m) => m.id === config.model) && (
+                <option value={config.model ?? ''}>{config.model || 'Select model'}</option>
+              )}
+              {providerModels.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="px-2 py-1.5 text-sm rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] text-[var(--nim-text)] placeholder-[var(--nim-text-muted)] focus:outline-none focus:border-[var(--nim-primary)]"
+              placeholder="e.g. claude-code:opus-1m"
+              value={config.model ?? ''}
+              onChange={(e) => set('model', e.target.value)}
+              data-testid="agent-config-model-input"
+            />
+          )}
         </div>
       </div>
 
@@ -240,21 +322,27 @@ function EditForm({ config, onChange, onSave, onCancel, isNew }: EditFormProps) 
 export function AgentConfigsPanel() {
   const [configs, setConfigs] = useAtom(agentConfigsAtom);
   const configList = useAtomValue(agentConfigListAtom);
+  const availableModels = useAtomValue(availableModelsAtom) as Record<string, AIModel[]>;
+  const defaultModel = useAtomValue(defaultAgentModelAtom);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingConfig, setEditingConfig] = useState<EditingConfig | null>(null);
 
   const startCreate = useCallback(() => {
     const id = crypto.randomUUID();
+    // Parse provider from the user's current default model (e.g. "claude-code:opus-1m" -> "claude-code")
+    const defaultProvider = defaultModel?.includes(':')
+      ? defaultModel.split(':')[0]
+      : 'claude-code';
     setEditingId(id);
     setEditingConfig({
       id,
       name: '',
-      provider: 'claude-code',
-      model: 'claude-code:opus-1m',
+      provider: defaultProvider,
+      model: defaultModel || 'claude-code:opus-1m',
       createdAt: Date.now(),
       updatedAt: Date.now(),
     });
-  }, []);
+  }, [defaultModel]);
 
   const startEdit = useCallback((cfg: AgentConfig) => {
     setEditingId(cfg.id);
@@ -267,7 +355,7 @@ export function AgentConfigsPanel() {
     const toSave: AgentConfig = {
       id: editingConfig.id,
       name: editingConfig.name.trim(),
-      description: editingConfig.description?.trim() || undefined,
+      tags: editingConfig.tags && editingConfig.tags.length > 0 ? editingConfig.tags : undefined,
       provider: editingConfig.provider ?? 'claude-code',
       model: editingConfig.model.trim(),
       envVars: editingConfig.envVars,
@@ -331,6 +419,7 @@ export function AgentConfigsPanel() {
             onSave={handleSave}
             onCancel={handleCancel}
             isNew={!configs[editingId]}
+            availableModels={availableModels}
           />
         </div>
       ) : (
@@ -346,8 +435,12 @@ export function AgentConfigsPanel() {
               >
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <span className="text-sm font-medium text-[var(--nim-text)] truncate">{cfg.name}</span>
-                  {cfg.description && (
-                    <span className="text-xs text-[var(--nim-text-muted)] truncate">{cfg.description}</span>
+                  {cfg.tags && cfg.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {cfg.tags.map((tag) => (
+                        <span key={tag} className="px-1.5 py-0.5 text-xs rounded bg-[var(--nim-bg-tertiary)] text-[var(--nim-text-muted)]">{tag}</span>
+                      ))}
+                    </div>
                   )}
                   <span className="text-xs text-[var(--nim-text-muted)] mt-0.5">
                     {providerLabel(cfg.provider)} &middot; {cfg.model}
