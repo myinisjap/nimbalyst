@@ -1927,13 +1927,14 @@ const SessionHistoryComponent: React.FC<SessionHistoryProps> = ({
       isSuperLoopsAvailable || null,
       isMetaAgentEnabled || null,
     ].filter(Boolean);
-    if (availableOptions.length === 1) {
-      // Only one option available, trigger it directly
+    const hasAgentConfigs = agentConfigList.length > 0;
+    if (availableOptions.length === 1 && !hasAgentConfigs) {
+      // Only one option available with no config presets, trigger it directly
       if (onNewSession) onNewSession();
       else if (onNewWorktreeSession) openWorktreeBaseBranchPicker();
       else if (onNewTerminal) onNewTerminal();
     } else {
-      // Multiple options, show dropdown
+      // Multiple options or agent config presets present, show dropdown
       toggleNewDropdown();
     }
   };

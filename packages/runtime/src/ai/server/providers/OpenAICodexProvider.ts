@@ -933,7 +933,19 @@ export class OpenAICodexProvider extends BaseAgentProvider {
 
     const agentRole = await this.getAgentRole(sessionId);
     const isMetaAgent = agentRole === 'meta-agent';
-    const systemPrompt = this.buildSystemPrompt(documentContext, isMetaAgent);
+    let systemPrompt = this.buildSystemPrompt(documentContext, isMetaAgent);
+    const _agentConfigForPrompt = documentContext?.agentConfig;
+    if (_agentConfigForPrompt?.systemPromptPath) {
+      try {
+        const { readFileSync } = await import('fs');
+        const addition = readFileSync(_agentConfigForPrompt.systemPromptPath, 'utf8').trim();
+        if (addition) {
+          systemPrompt = systemPrompt ? `${systemPrompt}\n\n${addition}` : addition;
+        }
+      } catch (err) {
+        console.warn('[CODEX] Failed to read agentConfig.systemPromptPath:', _agentConfigForPrompt.systemPromptPath, err);
+      }
+    }
     const { userMessageAddition, messageWithContext } = buildUserMessageAddition(message, documentContext);
     const unsupportedAttachmentHints = attachments?.filter(
       (attachment) => attachment.type !== 'image' && attachment.type !== 'document'
@@ -1064,6 +1076,20 @@ export class OpenAICodexProvider extends BaseAgentProvider {
         console.log('[CODEX] Pre-edit hook sidecar dir resolver returned undefined', { sessionId });
       }
 
+      // Overlay agent config env vars (highest priority, API keys stripped)
+      const agentConfigOverrides = documentContext?.agentConfig;
+      if (agentConfigOverrides?.envVars) {
+        const { ANTHROPIC_API_KEY: _a, OPENAI_API_KEY: _b, ...safeOverrides } = agentConfigOverrides.envVars;
+        const baseEnv: Record<string, string> = codexEnv ? { ...codexEnv } : {};
+        if (!codexEnv) {
+          for (const [key, value] of Object.entries(process.env)) {
+            if (value !== undefined) baseEnv[key] = value;
+          }
+        }
+        Object.assign(baseEnv, safeOverrides);
+        codexEnv = baseEnv;
+      }
+
       const resolvedModel = await this.getConfiguredModel();
 
       // Sibling worktrees and the parent project root the agent is allowed to
@@ -1089,7 +1115,9 @@ export class OpenAICodexProvider extends BaseAgentProvider {
           abortSignal: abortController.signal,
           codexConfigOverrides: this.buildCodexConfigOverrides(mcpServers),
           ...(codexEnv ? { codexEnv } : {}),
-          ...(this.config?.effortLevel ? { effortLevel: this.config.effortLevel } : {}),
+          ...(agentConfigOverrides?.effortLevel
+            ? { effortLevel: agentConfigOverrides.effortLevel }
+            : this.config?.effortLevel ? { effortLevel: this.config.effortLevel } : {}),
           ...(additionalDirectories.length > 0 ? { additionalDirectories } : {}),
         },
       };

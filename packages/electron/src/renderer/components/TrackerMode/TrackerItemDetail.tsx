@@ -23,6 +23,7 @@ import { trackerItemByIdAtom } from '@nimbalyst/runtime/plugins/TrackerPlugin/tr
 import { refreshSessionListAtom, sessionRegistryAtom, type SessionMeta } from '../../store/atoms/sessions';
 import { buildTrackerDeepLink } from '../../store/atoms/collabDocuments';
 import { errorNotificationService } from '../../services/ErrorNotificationService';
+import { agentConfigListAtom, type AgentConfig } from '../../store/atoms/appSettings';
 import { getRelativeTimeString } from '../../utils/dateFormatting';
 import { useTrackerContentCollab } from '../../hooks/useTrackerContentCollab';
 
@@ -32,7 +33,7 @@ interface TrackerItemDetailProps {
   onClose: () => void;
   onSwitchToFilesMode?: () => void;
   onSwitchToAgentMode?: (sessionId: string) => void;
-  onLaunchSession?: (trackerItemId: string) => void;
+  onLaunchSession?: (trackerItemId: string, agentConfig?: AgentConfig) => void;
   onArchive?: (itemId: string, archive: boolean) => void;
   onDelete?: (itemId: string) => void;
 }
@@ -185,6 +186,8 @@ export const TrackerItemDetail: React.FC<TrackerItemDetailProps> = ({
   const item = useAtomValue(trackerItemByIdAtom(itemId));
   const sessionRegistry = useAtomValue(sessionRegistryAtom);
   const refreshSessionList = useSetAtom(refreshSessionListAtom);
+  const agentConfigList = useAtomValue(agentConfigListAtom);
+  const [launchDropdownOpen, setLaunchDropdownOpen] = useState(false);
 
   const model = useMemo(() => globalRegistry.get(item?.primaryType ?? ''), [item?.primaryType]);
 
@@ -1165,14 +1168,49 @@ export const TrackerItemDetail: React.FC<TrackerItemDetailProps> = ({
                   </button>
                 )}
                 {onLaunchSession && (
-                  <button
-                    className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium rounded text-nim-muted hover:text-nim hover:bg-nim-tertiary transition-colors"
-                    onClick={() => onLaunchSession(item.id)}
-                    title="Launch a new AI session for this item"
-                  >
-                    <MaterialSymbol icon="add" size={14} />
-                    Launch Session
-                  </button>
+                  <div className="tracker-launch-session-dropdown relative">
+                    <button
+                      className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium rounded text-nim-muted hover:text-nim hover:bg-nim-tertiary transition-colors"
+                      onClick={() => {
+                        if (agentConfigList.length > 0) {
+                          setLaunchDropdownOpen((v) => !v);
+                        } else {
+                          onLaunchSession(item.id);
+                        }
+                      }}
+                      title="Launch a new AI session for this item"
+                    >
+                      <MaterialSymbol icon="add" size={14} />
+                      Launch Session
+                      {agentConfigList.length > 0 && <span className="opacity-50">▾</span>}
+                    </button>
+                    {launchDropdownOpen && agentConfigList.length > 0 && (
+                      <div
+                        className="tracker-launch-session-menu absolute right-0 top-full mt-1 min-w-[160px] rounded border border-[var(--nim-border)] bg-[var(--nim-bg)] shadow-[0_4px_12px_rgba(0,0,0,0.15)] py-1 z-50 overflow-hidden"
+                        onMouseLeave={() => setLaunchDropdownOpen(false)}
+                      >
+                        <button
+                          className="w-full text-left px-3 py-1.5 text-xs text-[var(--nim-text)] hover:bg-[var(--nim-bg-secondary)] transition-colors"
+                          onClick={() => { setLaunchDropdownOpen(false); onLaunchSession(item.id); }}
+                        >
+                          Default
+                        </button>
+                        <div className="h-px bg-[var(--nim-border)] my-1" />
+                        {agentConfigList.map((cfg) => (
+                          <button
+                            key={cfg.id}
+                            className="w-full text-left px-3 py-1.5 text-xs text-[var(--nim-text)] hover:bg-[var(--nim-bg-secondary)] transition-colors"
+                            onClick={() => { setLaunchDropdownOpen(false); onLaunchSession(item.id, cfg); }}
+                          >
+                            <div className="font-medium">{cfg.name}</div>
+                            {cfg.tags && cfg.tags.length > 0 && (
+                              <div className="text-[10px] text-[var(--nim-text-muted)]">{cfg.tags.join(', ')}</div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

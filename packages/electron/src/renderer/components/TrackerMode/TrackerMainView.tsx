@@ -34,7 +34,7 @@ import { setSelectedWorkstreamAtom, sessionRegistryAtom, refreshSessionListAtom,
 import { trackerItemsMapAtom } from '@nimbalyst/runtime/plugins/TrackerPlugin/trackerDataAtoms';
 import { workstreamStateAtom } from '../../store/atoms/workstreamState';
 import { setWindowModeAtom } from '../../store/atoms/windowMode';
-import { defaultAgentModelAtom } from '../../store/atoms/appSettings';
+import { defaultAgentModelAtom, agentConfigListAtom, type AgentConfig } from '../../store/atoms/appSettings';
 import { ModelIdentifier } from '@nimbalyst/runtime/ai/server/types';
 import { store } from '../../store';
 import { useFloatingMenu } from '../../hooks/useFloatingMenu';
@@ -165,21 +165,22 @@ export const TrackerMainView: React.FC<TrackerMainViewProps> = ({
   }, [workspacePath, setSelectedWorkstream, setWindowMode]);
 
   /** Launch a new AI session linked to a tracker item */
-  const handleLaunchSession = useCallback(async (trackerItemId: string) => {
+  const handleLaunchSession = useCallback(async (trackerItemId: string, agentConfig?: AgentConfig) => {
     try {
-      // Derive provider from the user's default model rather than hardcoding
-      // 'claude-code'. Mirrors AgentMode.createNewSession so a Codex-only
-      // workspace launches a Codex session, not a failed claude-code one.
-      // See nimbalyst#176.
+      // Derive provider from the agent config preset or the user's default model.
+      // Mirrors AgentMode.createNewSession so a Codex-only workspace launches a
+      // Codex session, not a failed claude-code one. See nimbalyst#176.
       const sessionId = crypto.randomUUID();
-      const parsedModel = defaultModel ? ModelIdentifier.tryParse(defaultModel) : null;
-      const provider = parsedModel?.provider || 'claude-code';
+      const effectiveModel = agentConfig?.model || defaultModel;
+      const parsedModel = effectiveModel ? ModelIdentifier.tryParse(effectiveModel) : null;
+      const provider = agentConfig?.provider || parsedModel?.provider || 'claude-code';
       const result = await window.electronAPI.invoke('sessions:create', {
         session: {
           id: sessionId,
           provider,
-          model: defaultModel,
-          title: 'New Session',
+          model: effectiveModel,
+          title: agentConfig?.name || 'New Session',
+          ...(agentConfig && { metadata: { agentConfigId: agentConfig.id } }),
         },
         workspaceId: workspacePath,
       });
