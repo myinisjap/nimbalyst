@@ -34,6 +34,7 @@ export interface AgentConfig {
   id: string;
   name: string;
   tags?: string[];
+  defaultForPlanningType?: string;
   provider: string;
   model: string;
   envVars?: Record<string, string>;
@@ -1567,6 +1568,11 @@ export function deleteAgentConfig(id: string): void {
   const configs = getAgentConfigs();
   delete configs[id];
   setAgentConfigs(configs);
+}
+
+export function getAgentConfigForPlanningType(planningType: string): AgentConfig | undefined {
+  const configs = getAgentConfigs();
+  return Object.values(configs).find((c) => c.defaultForPlanningType === planningType);
 }
 
 /**

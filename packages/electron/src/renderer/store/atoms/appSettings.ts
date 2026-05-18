@@ -2118,6 +2118,7 @@ export interface AgentConfig {
   name: string;
   description?: string;
   tags?: string[];
+  defaultForPlanningType?: string;
   provider: string;
   model: string;
   envVars?: Record<string, string>;

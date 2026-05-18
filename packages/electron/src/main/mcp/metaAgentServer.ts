@@ -335,6 +335,10 @@ function createMetaAgentMcpServer(
                 description:
                   "Default false. When false (the default), the calling session receives no follow-up prompt when the spawned session completes/errors/waits — fire and forget. Set true only when the caller specifically wants to be told the result and continue working with it.",
               },
+              agentConfig: {
+                type: "string",
+                description: "Optional name or ID of a saved agent config preset to use for this session. When omitted, falls back to any preset marked as default for the inferred planning type, then to the global default.",
+              },
             },
             required: ["prompt"],
           },

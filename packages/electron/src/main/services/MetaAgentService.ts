@@ -7,7 +7,7 @@ import type { AIProviderType } from '@nimbalyst/runtime/ai/server/types';
 import { ModelIdentifier } from '@nimbalyst/runtime/ai/server/types';
 import { AISessionsRepository, AgentMessagesRepository, SessionFilesRepository } from '@nimbalyst/runtime';
 import { getSessionStateManager } from '@nimbalyst/runtime/ai/server/SessionStateManager';
-import { getDefaultAIModel } from '../utils/store';
+import { getDefaultAIModel, getAgentConfigs, getAgentConfigForPlanningType } from '../utils/store';
 import { toMillis } from '../utils/timestampUtils';
 import { createWorktreeStore } from './WorktreeStore';
 import { GitWorktreeService } from './GitWorktreeService';
@@ -87,6 +87,10 @@ interface SpawnSessionArgs {
    * caller's workstream.
    */
   isolated?: boolean;
+  /** Name or ID of an agent config preset to use for this session. When omitted,
+   *  falls back to the config with defaultForPlanningType matching the session
+   *  type if one exists, then to the global default. */
+  agentConfig?: string;
 }
 
 export class MetaAgentService {
@@ -523,8 +527,24 @@ export class MetaAgentService {
     // copies the caller's model so the new session keeps the same provider/model
     // (e.g. opus stays on opus). Falling through to undefined lets
     // createChildSessionInternal use the global default.
-    const effectiveModel =
+    let effectiveModel =
       args.model ?? (args.inheritModel ? parent.model ?? undefined : undefined);
+
+    // Resolve agent config: explicit name/id wins, then fall back to planning-type default
+    let resolvedAgentConfigId: string | undefined;
+    if (args.agentConfig) {
+      const allConfigs = Object.values(getAgentConfigs());
+      const matched = allConfigs.find(
+        (c) => c.id === args.agentConfig ||
+               c.name.toLowerCase() === args.agentConfig!.toLowerCase()
+      );
+      if (matched) {
+        resolvedAgentConfigId = matched.id;
+        if (!args.model && !args.inheritModel) {
+          effectiveModel = matched.model;
+        }
+      }
+    }
 
     const childResult = await this.createChildSessionInternal(parentSessionId, workspaceId, {
       title: args.title,
@@ -534,6 +554,12 @@ export class MetaAgentService {
       model: effectiveModel,
       parentSessionIdOverride: workstreamId,
     });
+
+    if (resolvedAgentConfigId) {
+      await AISessionsRepository.updateMetadata(childResult.sessionId, {
+        metadata: { agentConfigId: resolvedAgentConfigId },
+      });
+    }
 
     // Default is fire-and-forget: kicking off work in a fresh session is the
     // common /launch-new-session use case (escape a long parent context).

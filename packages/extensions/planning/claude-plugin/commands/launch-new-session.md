@@ -58,8 +58,9 @@ When the user types `/launch-new-session [task description]`:
    set `true` if the user's phrasing implies they want the result back in this
    session ("...and tell me when it's done", "...and bring back the answer").
 
-5. **Decide on model.** By default the new session uses the app's global default
+5. **Decide on model and agent config.** By default the new session uses the app's global default
    model. Override only when the user asks for it:
+   - If the user names an agent config preset ("...with the 'backend' config", "...using my review preset"), pass that as `agentConfig` (the name as saved in Settings → Agent Configs). This overrides the default planning-type config.
    - If the user names a model ("...with opus", "...using sonnet"), pass that as
      `model` (e.g. `model: "claude-code:opus"`).
    - If the user says "same model", "keep the current model", or similar, pass
@@ -72,6 +73,7 @@ When the user types `/launch-new-session [task description]`:
    - `isolated`: per step 2 (omit to use the default)
    - `useWorktree`: per step 3
    - `notifyOnComplete`: per step 4 (omit to use the default)
+   - `agentConfig`: per step 5 (omit to use the planning-type default or global default)
    - `model` / `inheritModel`: per step 5 (omit both to use the global default)
 
 7. **Report back to the user** with:
