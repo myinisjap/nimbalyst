@@ -199,20 +199,12 @@ function EditForm({ config, onChange, onSave, onCancel, isNew, availableModels }
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-[var(--nim-text-muted)]">Default for planning type</label>
         <input
-          list="planning-type-suggestions"
           className="px-2 py-1.5 text-sm rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] text-[var(--nim-text)] placeholder-[var(--nim-text-muted)] focus:outline-none focus:border-[var(--nim-primary)]"
           placeholder="e.g. implement, review, debug"
           value={config.defaultForPlanningType ?? ''}
           onChange={(e) => set('defaultForPlanningType', e.target.value.trim() || undefined)}
           data-testid="agent-config-planning-type-input"
         />
-        <datalist id="planning-type-suggestions">
-          <option value="implement" />
-          <option value="review" />
-          <option value="debug" />
-          <option value="test" />
-          <option value="refactor" />
-        </datalist>
       </div>
 
       <div className="flex gap-3">
@@ -404,7 +396,7 @@ export function AgentConfigsPanel() {
     } catch (error) {
       console.error('[AgentConfigsPanel] Failed to save config:', error);
     }
-  }, [editingConfig, setConfigs]);
+  }, [editingConfig, configs, setConfigs]);
 
   const handleCancel = useCallback(() => {
     setEditingId(null);

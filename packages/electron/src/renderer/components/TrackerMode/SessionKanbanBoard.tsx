@@ -48,7 +48,7 @@ import {
   type KanbanCardType,
 } from '../../store/atoms/sessionKanban';
 import { agentConfigListAtom, type AgentConfig } from '../../store/atoms/appSettings';
-import { useFloating, offset, flip, shift } from '@floating-ui/react';
+import { useFloating, offset, flip, shift, useDismiss, useInteractions } from '@floating-ui/react';
 import {
   sessionProcessingAtom,
   sessionHasPendingInteractivePromptAtom,
@@ -89,36 +89,25 @@ interface ColumnConfigPickerProps {
   currentConfigId?: string | null;
   onChange: (configId: string | null) => void;
   onClose: () => void;
+  floatingRef: (node: HTMLElement | null) => void;
+  floatingStyles: React.CSSProperties;
 }
 
-function ColumnConfigPicker({ currentConfigId, onChange, onClose }: ColumnConfigPickerProps) {
+function ColumnConfigPicker({ currentConfigId, onChange, onClose, floatingRef, floatingStyles }: ColumnConfigPickerProps) {
   const agentConfigList = useAtomValue(agentConfigListAtom);
-  const pickerRef = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
-
-  const currentConfig = currentConfigId ? agentConfigList.find(c => c.id === currentConfigId) : null;
 
   return (
     <FloatingPortal>
       <div
-        ref={pickerRef}
-        style={{ position: 'fixed', top: '100%', left: '100%', transform: 'translateX(-100%)', marginTop: 4 }}
+        ref={floatingRef}
+        style={floatingStyles}
         className="column-config-picker z-50 min-w-[180px] rounded-lg border border-[var(--nim-border)] bg-[var(--nim-bg-primary)] shadow-lg py-1"
         data-testid="kanban-column-config-picker"
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <button
           className="w-full text-left px-3 py-1.5 text-xs text-[var(--nim-text-muted)] hover:bg-[var(--nim-bg-secondary)]"
-          onClick={() => onChange(null)}
+          onClick={() => { onChange(null); onClose(); }}
           data-testid="kanban-column-config-none"
         >
           None
@@ -127,7 +116,7 @@ function ColumnConfigPicker({ currentConfigId, onChange, onClose }: ColumnConfig
           <button
             key={cfg.id}
             className={`w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--nim-bg-secondary)] ${currentConfigId === cfg.id ? 'text-[var(--nim-primary)] font-medium' : 'text-[var(--nim-text)]'}`}
-            onClick={() => onChange(cfg.id)}
+            onClick={() => { onChange(cfg.id); onClose(); }}
             data-testid={`kanban-column-config-${cfg.id}`}
           >
             <div className="truncate">{cfg.name}</div>
@@ -774,10 +763,14 @@ function SessionKanbanColumn({ phase, label, color, sessions, onSelect, onArchiv
 
   // Column agent config picker state
   const [showConfigPicker, setShowConfigPicker] = useState(false);
-  const { refs: configPickerRefs, floatingStyles: configPickerStyles } = useFloating({
+  const { refs: configPickerRefs, floatingStyles: configPickerStyles, context: configPickerContext } = useFloating({
+    open: showConfigPicker,
+    onOpenChange: setShowConfigPicker,
     placement: 'bottom-end',
     middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
   });
+  const configPickerDismiss = useDismiss(configPickerContext);
+  const { getReferenceProps: getConfigPickerReferenceProps, getFloatingProps: getConfigPickerFloatingProps } = useInteractions([configPickerDismiss]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -880,8 +873,10 @@ function SessionKanbanColumn({ phase, label, color, sessions, onSelect, onArchiv
           <>
             <button
               ref={configPickerRefs.setReference}
+              {...getConfigPickerReferenceProps({
+                onClick: (e: React.MouseEvent) => { e.stopPropagation(); setShowConfigPicker((v) => !v); },
+              })}
               className={`transition-colors ${columnAgentConfigId ? 'text-[var(--nim-primary)] hover:text-[var(--nim-primary)]' : 'text-nim-disabled hover:text-nim-muted'}`}
-              onClick={(e) => { e.stopPropagation(); setShowConfigPicker((v) => !v); }}
               title={columnAgentConfigId ? 'Column agent config active' : 'Set column agent config'}
               data-testid={`kanban-column-config-btn-${phase}`}
             >
@@ -890,8 +885,10 @@ function SessionKanbanColumn({ phase, label, color, sessions, onSelect, onArchiv
             {showConfigPicker && (
               <ColumnConfigPicker
                 currentConfigId={columnAgentConfigId}
-                onChange={(id) => { onColumnAgentConfigChange(id); setShowConfigPicker(false); }}
+                onChange={onColumnAgentConfigChange}
                 onClose={() => setShowConfigPicker(false)}
+                floatingRef={configPickerRefs.setFloating}
+                floatingStyles={configPickerStyles}
               />
             )}
           </>
@@ -974,10 +971,14 @@ function UnphasedColumn({ sessions, onSelect, onArchive, onRename, onDropToPhase
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showConfigPicker, setShowConfigPicker] = useState(false);
-  const { refs: configPickerRefs, floatingStyles: configPickerStyles } = useFloating({
+  const { refs: configPickerRefs, floatingStyles: configPickerStyles, context: configPickerContext } = useFloating({
+    open: showConfigPicker,
+    onOpenChange: setShowConfigPicker,
     placement: 'bottom-end',
     middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
   });
+  const configPickerDismiss = useDismiss(configPickerContext);
+  const { getReferenceProps: getConfigPickerReferenceProps, getFloatingProps: getConfigPickerFloatingProps } = useInteractions([configPickerDismiss]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -1080,8 +1081,10 @@ function UnphasedColumn({ sessions, onSelect, onArchive, onRename, onDropToPhase
           <>
             <button
               ref={configPickerRefs.setReference}
+              {...getConfigPickerReferenceProps({
+                onClick: (e: React.MouseEvent) => { e.stopPropagation(); setShowConfigPicker((v) => !v); },
+              })}
               className={`transition-colors ${columnAgentConfigId ? 'text-[var(--nim-primary)] hover:text-[var(--nim-primary)]' : 'text-nim-disabled hover:text-nim-muted'}`}
-              onClick={(e) => { e.stopPropagation(); setShowConfigPicker((v) => !v); }}
               title={columnAgentConfigId ? 'Column agent config active' : 'Set column agent config'}
               data-testid="kanban-column-config-btn-unphased"
             >
@@ -1090,8 +1093,10 @@ function UnphasedColumn({ sessions, onSelect, onArchive, onRename, onDropToPhase
             {showConfigPicker && (
               <ColumnConfigPicker
                 currentConfigId={columnAgentConfigId}
-                onChange={(id) => { onColumnAgentConfigChange(id); setShowConfigPicker(false); }}
+                onChange={onColumnAgentConfigChange}
                 onClose={() => setShowConfigPicker(false)}
+                floatingRef={configPickerRefs.setFloating}
+                floatingStyles={configPickerStyles}
               />
             )}
           </>

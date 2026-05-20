@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useFloating, offset, flip, shift, useDismiss, useInteractions, FloatingPortal } from '@floating-ui/react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { NimbalystEditor, MaterialSymbol, ProviderIcon } from '@nimbalyst/runtime';
 import type { EditorConfig } from '@nimbalyst/runtime/editor';
@@ -188,6 +189,14 @@ export const TrackerItemDetail: React.FC<TrackerItemDetailProps> = ({
   const refreshSessionList = useSetAtom(refreshSessionListAtom);
   const agentConfigList = useAtomValue(agentConfigListAtom);
   const [launchDropdownOpen, setLaunchDropdownOpen] = useState(false);
+  const { refs: launchRefs, floatingStyles: launchFloatingStyles, context: launchContext } = useFloating({
+    open: launchDropdownOpen,
+    onOpenChange: setLaunchDropdownOpen,
+    placement: 'bottom-end',
+    middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+  });
+  const launchDismiss = useDismiss(launchContext);
+  const { getReferenceProps: getLaunchReferenceProps, getFloatingProps: getLaunchFloatingProps } = useInteractions([launchDismiss]);
 
   const model = useMemo(() => globalRegistry.get(item?.primaryType ?? ''), [item?.primaryType]);
 
@@ -1168,16 +1177,19 @@ export const TrackerItemDetail: React.FC<TrackerItemDetailProps> = ({
                   </button>
                 )}
                 {onLaunchSession && (
-                  <div className="tracker-launch-session-dropdown relative">
+                  <div className="tracker-launch-session-dropdown">
                     <button
+                      ref={launchRefs.setReference}
+                      {...getLaunchReferenceProps({
+                        onClick: () => {
+                          if (agentConfigList.length > 0) {
+                            setLaunchDropdownOpen((v) => !v);
+                          } else {
+                            onLaunchSession(item.id);
+                          }
+                        },
+                      })}
                       className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium rounded text-nim-muted hover:text-nim hover:bg-nim-tertiary transition-colors"
-                      onClick={() => {
-                        if (agentConfigList.length > 0) {
-                          setLaunchDropdownOpen((v) => !v);
-                        } else {
-                          onLaunchSession(item.id);
-                        }
-                      }}
                       title="Launch a new AI session for this item"
                     >
                       <MaterialSymbol icon="add" size={14} />
@@ -1185,30 +1197,34 @@ export const TrackerItemDetail: React.FC<TrackerItemDetailProps> = ({
                       {agentConfigList.length > 0 && <span className="opacity-50">▾</span>}
                     </button>
                     {launchDropdownOpen && agentConfigList.length > 0 && (
-                      <div
-                        className="tracker-launch-session-menu absolute right-0 top-full mt-1 min-w-[160px] rounded border border-[var(--nim-border)] bg-[var(--nim-bg)] shadow-[0_4px_12px_rgba(0,0,0,0.15)] py-1 z-50 overflow-hidden"
-                        onMouseLeave={() => setLaunchDropdownOpen(false)}
-                      >
-                        <button
-                          className="w-full text-left px-3 py-1.5 text-xs text-[var(--nim-text)] hover:bg-[var(--nim-bg-secondary)] transition-colors"
-                          onClick={() => { setLaunchDropdownOpen(false); onLaunchSession(item.id); }}
+                      <FloatingPortal>
+                        <div
+                          ref={launchRefs.setFloating}
+                          style={launchFloatingStyles}
+                          {...getLaunchFloatingProps()}
+                          className="tracker-launch-session-menu min-w-[160px] rounded border border-[var(--nim-border)] bg-[var(--nim-bg)] shadow-[0_4px_12px_rgba(0,0,0,0.15)] py-1 z-50 overflow-hidden"
                         >
-                          Default
-                        </button>
-                        <div className="h-px bg-[var(--nim-border)] my-1" />
-                        {agentConfigList.map((cfg) => (
                           <button
-                            key={cfg.id}
                             className="w-full text-left px-3 py-1.5 text-xs text-[var(--nim-text)] hover:bg-[var(--nim-bg-secondary)] transition-colors"
-                            onClick={() => { setLaunchDropdownOpen(false); onLaunchSession(item.id, cfg); }}
+                            onClick={() => { setLaunchDropdownOpen(false); onLaunchSession(item.id); }}
                           >
-                            <div className="font-medium">{cfg.name}</div>
-                            {cfg.tags && cfg.tags.length > 0 && (
-                              <div className="text-[10px] text-[var(--nim-text-muted)]">{cfg.tags.join(', ')}</div>
-                            )}
+                            Default
                           </button>
-                        ))}
-                      </div>
+                          <div className="h-px bg-[var(--nim-border)] my-1" />
+                          {agentConfigList.map((cfg) => (
+                            <button
+                              key={cfg.id}
+                              className="w-full text-left px-3 py-1.5 text-xs text-[var(--nim-text)] hover:bg-[var(--nim-bg-secondary)] transition-colors"
+                              onClick={() => { setLaunchDropdownOpen(false); onLaunchSession(item.id, cfg); }}
+                            >
+                              <div className="font-medium">{cfg.name}</div>
+                              {cfg.tags && cfg.tags.length > 0 && (
+                                <div className="text-[10px] text-[var(--nim-text-muted)]">{cfg.tags.join(', ')}</div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </FloatingPortal>
                     )}
                   </div>
                 )}
