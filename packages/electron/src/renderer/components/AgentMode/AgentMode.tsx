@@ -14,7 +14,7 @@
 import React, { forwardRef, useImperativeHandle, useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { atom, useAtomValue, useSetAtom } from 'jotai';
 import { defaultAgentModelAtom, worktreesFeatureAvailableAtom, alphaFeatureEnabledAtom, agentConfigListAtom, type AgentConfig } from '../../store/atoms/appSettings';
-import { useFloating, offset, flip, shift, FloatingPortal } from '@floating-ui/react';
+import { useFloating, offset, flip, shift, FloatingPortal, useDismiss, useInteractions } from '@floating-ui/react';
 import { ModelIdentifier } from '@nimbalyst/runtime/ai/server/types';
 import { ResizablePanel } from '../AgenticCoding/ResizablePanel';
 import { SessionHistory } from '../AgenticCoding/SessionHistory';
@@ -154,10 +154,14 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
 
   // Picker state for the "New Session" button
   const [showConfigPicker, setShowConfigPicker] = useState(false);
-  const { refs: pickerRefs, floatingStyles: pickerStyles } = useFloating({
+  const { refs: pickerRefs, floatingStyles: pickerStyles, context: pickerContext } = useFloating({
+    open: showConfigPicker,
+    onOpenChange: setShowConfigPicker,
     placement: 'bottom-start',
     middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
   });
+  const pickerDismiss = useDismiss(pickerContext);
+  const { getReferenceProps: getPickerReferenceProps, getFloatingProps: getPickerFloatingProps } = useInteractions([pickerDismiss]);
 
   // Shares state
   const fetchShares = useSetAtom(fetchSessionSharesAtom);
@@ -1057,13 +1061,15 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
       <div className="relative">
         <button
           ref={pickerRefs.setReference}
-          onClick={() => {
-            if (agentConfigList.length > 0) {
-              setShowConfigPicker((v) => !v);
-            } else {
-              createNewSession();
-            }
-          }}
+          {...getPickerReferenceProps({
+            onClick: () => {
+              if (agentConfigList.length > 0) {
+                setShowConfigPicker((v) => !v);
+              } else {
+                createNewSession();
+              }
+            },
+          })}
           className="agent-mode-new-button py-2 px-4 rounded-md border border-nim-border bg-nim-bg-secondary text-nim cursor-pointer text-sm transition-colors hover:bg-nim-bg-active"
           data-testid="agent-mode-new-session-btn"
         >
@@ -1075,6 +1081,7 @@ export const AgentMode = forwardRef<AgentModeRef, AgentModeProps>(function Agent
             <div
               ref={pickerRefs.setFloating}
               style={pickerStyles}
+              {...getPickerFloatingProps()}
               className="agent-config-picker z-50 min-w-[200px] rounded-lg border border-[var(--nim-border)] bg-[var(--nim-bg-primary)] shadow-lg py-1"
               data-testid="agent-config-picker"
             >

@@ -33,50 +33,66 @@ interface EnvVarEditorProps {
   onChange: (value: Record<string, string>) => void;
 }
 
+interface EnvVarEntry { key: string; value: string; }
+
+function recordToEntries(record: Record<string, string>): EnvVarEntry[] {
+  return Object.entries(record).map(([key, value]) => ({ key, value }));
+}
+
+function entriesToRecord(entries: EnvVarEntry[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const { key, value } of entries) {
+    if (key) result[key] = value;
+  }
+  return result;
+}
+
 function EnvVarEditor({ value, onChange }: EnvVarEditorProps) {
-  const entries = Object.entries(value);
+  const [entries, setEntries] = React.useState<EnvVarEntry[]>(() => recordToEntries(value));
 
-  const updateKey = (oldKey: string, newKey: string) => {
-    const next: Record<string, string> = {};
-    for (const [k, v] of Object.entries(value)) {
-      next[k === oldKey ? newKey : k] = v;
+  const prevValueRef = React.useRef(value);
+  React.useEffect(() => {
+    if (value !== prevValueRef.current) {
+      prevValueRef.current = value;
+      setEntries(recordToEntries(value));
     }
-    onChange(next);
+  }, [value]);
+
+  const updateEntry = (index: number, field: 'key' | 'value', newVal: string) => {
+    const next = entries.map((e, i) => i === index ? { ...e, [field]: newVal } : e);
+    setEntries(next);
+    onChange(entriesToRecord(next));
   };
 
-  const updateVal = (key: string, newVal: string) => {
-    onChange({ ...value, [key]: newVal });
-  };
-
-  const removeEntry = (key: string) => {
-    const next = { ...value };
-    delete next[key];
-    onChange(next);
+  const removeEntry = (index: number) => {
+    const next = entries.filter((_, i) => i !== index);
+    setEntries(next);
+    onChange(entriesToRecord(next));
   };
 
   const addEntry = () => {
-    onChange({ ...value, '': '' });
+    setEntries(prev => [...prev, { key: '', value: '' }]);
   };
 
   return (
     <div className="agent-config-env-editor flex flex-col gap-1">
-      {entries.map(([k, v], i) => (
+      {entries.map((entry, i) => (
         <div key={i} className="flex gap-1 items-center">
           <input
             className="flex-1 px-2 py-1 text-xs rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] text-[var(--nim-text)] placeholder-[var(--nim-text-muted)] focus:outline-none focus:border-[var(--nim-primary)]"
             placeholder="KEY"
-            value={k}
-            onChange={(e) => updateKey(k, e.target.value)}
+            value={entry.key}
+            onChange={(e) => updateEntry(i, 'key', e.target.value)}
           />
           <span className="text-[var(--nim-text-muted)] text-xs">=</span>
           <input
             className="flex-1 px-2 py-1 text-xs rounded bg-[var(--nim-bg-secondary)] border border-[var(--nim-border)] text-[var(--nim-text)] placeholder-[var(--nim-text-muted)] focus:outline-none focus:border-[var(--nim-primary)]"
             placeholder="value"
-            value={v}
-            onChange={(e) => updateVal(k, e.target.value)}
+            value={entry.value}
+            onChange={(e) => updateEntry(i, 'value', e.target.value)}
           />
           <button
-            onClick={() => removeEntry(k)}
+            onClick={() => removeEntry(i)}
             className="p-1 rounded text-[var(--nim-text-muted)] hover:text-[#ef4444] hover:bg-[var(--nim-bg-tertiary)]"
           >
             <MaterialSymbol icon="close" size={14} />
@@ -379,17 +395,23 @@ export function AgentConfigsPanel() {
     };
 
     try {
-      await window.electronAPI.agentConfigs.save(toSave);
       // Enforce uniqueness: clear the same defaultForPlanningType from other configs
       const newConfigs = { ...configs };
+      const configsToPersist: AgentConfig[] = [];
       if (toSave.defaultForPlanningType) {
         for (const [otherId, other] of Object.entries(newConfigs)) {
           if (otherId !== toSave.id && other.defaultForPlanningType === toSave.defaultForPlanningType) {
-            newConfigs[otherId] = { ...other, defaultForPlanningType: undefined };
+            const updated = { ...other, defaultForPlanningType: undefined };
+            newConfigs[otherId] = updated;
+            configsToPersist.push(updated);
           }
         }
       }
       newConfigs[toSave.id] = toSave;
+
+      // Persist all modified configs to main process
+      await Promise.all(configsToPersist.map(c => window.electronAPI.agentConfigs.save(c)));
+      await window.electronAPI.agentConfigs.save(toSave);
       setConfigs(newConfigs);
       setEditingId(null);
       setEditingConfig(null);

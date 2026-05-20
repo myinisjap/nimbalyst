@@ -2116,7 +2116,6 @@ let debugFlagsListenerInstalled = false;
 export interface AgentConfig {
   id: string;
   name: string;
-  description?: string;
   tags?: string[];
   defaultForPlanningType?: string;
   provider: string;

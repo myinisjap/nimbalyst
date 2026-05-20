@@ -1,5 +1,6 @@
 import path from 'path';
 import crypto from 'crypto';
+import { readFileSync } from 'fs';
 import OpenAI from 'openai';
 import { BaseAgentProvider } from './BaseAgentProvider';
 import { buildUserMessageAddition } from './documentContextUtils';
@@ -937,7 +938,6 @@ export class OpenAICodexProvider extends BaseAgentProvider {
     const _agentConfigForPrompt = documentContext?.agentConfig;
     if (_agentConfigForPrompt?.systemPromptPath) {
       try {
-        const { readFileSync } = await import('fs');
         const addition = readFileSync(_agentConfigForPrompt.systemPromptPath, 'utf8').trim();
         if (addition) {
           systemPrompt = systemPrompt ? `${systemPrompt}\n\n${addition}` : addition;
