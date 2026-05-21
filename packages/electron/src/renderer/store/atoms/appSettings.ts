@@ -2109,42 +2109,6 @@ export const setDebugFlagsAtom = atom(
  * window propagate.
  */
 let debugFlagsListenerInstalled = false;
-// ============================================================
-// Agent Configs
-// ============================================================
-
-export interface AgentConfig {
-  id: string;
-  name: string;
-  tags?: string[];
-  defaultForPlanningType?: string;
-  provider: string;
-  model: string;
-  envVars?: Record<string, string>;
-  systemPromptPath?: string;
-  effortLevel?: string;
-  customBinaryPath?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export const agentConfigsAtom = atom<Record<string, AgentConfig>>({});
-
-export const agentConfigListAtom = atom((get) =>
-  Object.values(get(agentConfigsAtom)).sort((a, b) => a.name.localeCompare(b.name))
-);
-
-export async function initAgentConfigs(): Promise<Record<string, AgentConfig>> {
-  if (typeof window === 'undefined' || !window.electronAPI?.agentConfigs) {
-    return {};
-  }
-  try {
-    return (await window.electronAPI.agentConfigs.list()) as Record<string, AgentConfig>;
-  } catch (error) {
-    console.error('[appSettings] Failed to load agent configs:', error);
-    return {};
-  }
-}
 
 export async function initDebugFlags(): Promise<NimbalystDebugFlags> {
   if (typeof window === 'undefined' || !window.electronAPI) {
@@ -2166,5 +2130,40 @@ export async function initDebugFlags(): Promise<NimbalystDebugFlags> {
   } catch (error) {
     console.error('[appSettings] Failed to load debug flags:', error);
     return DEFAULT_DEBUG_FLAGS;
+  }
+}
+
+// ============================================================
+// Agent Configs
+// ============================================================
+
+export interface AgentConfig {
+  id: string;
+  name: string;
+  tags?: string[];
+  provider: string;
+  model: string;
+  envVars?: Record<string, string>;
+  systemPromptPath?: string;
+  effortLevel?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const agentConfigsAtom = atom<Record<string, AgentConfig>>({});
+
+export const agentConfigListAtom = atom((get) =>
+  Object.values(get(agentConfigsAtom)).sort((a, b) => a.name.localeCompare(b.name))
+);
+
+export async function initAgentConfigs(): Promise<Record<string, AgentConfig>> {
+  if (typeof window === 'undefined' || !window.electronAPI?.agentConfigs) {
+    return {};
+  }
+  try {
+    return (await window.electronAPI.agentConfigs.list()) as Record<string, AgentConfig>;
+  } catch (error) {
+    console.error('[appSettings] Failed to load agent configs:', error);
+    return {};
   }
 }

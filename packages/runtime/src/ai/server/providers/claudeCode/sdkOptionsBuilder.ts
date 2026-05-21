@@ -43,7 +43,6 @@ export interface AgentConfigOverrides {
   envVars?: Record<string, string>;
   systemPromptPath?: string;
   effortLevel?: string;
-  customBinaryPath?: string;
 }
 
 export interface BuildSdkOptionsParams {
@@ -379,11 +378,6 @@ export async function buildSdkOptions(
   // Apply agentConfig effort level override
   if (agentConfig?.effortLevel) {
     env.CLAUDE_CODE_EFFORT_LEVEL = agentConfig.effortLevel;
-  }
-
-  // Apply agentConfig custom binary path override
-  if (agentConfig?.customBinaryPath) {
-    options.pathToClaudeCodeExecutable = agentConfig.customBinaryPath;
   }
 
   options.env = env;

@@ -34,13 +34,11 @@ export interface AgentConfig {
   id: string;
   name: string;
   tags?: string[];
-  defaultForPlanningType?: string;
   provider: string;
   model: string;
   envVars?: Record<string, string>;
   systemPromptPath?: string;
   effortLevel?: string;
-  customBinaryPath?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -1568,11 +1566,6 @@ export function deleteAgentConfig(id: string): void {
   const configs = getAgentConfigs();
   delete configs[id];
   setAgentConfigs(configs);
-}
-
-export function getAgentConfigForPlanningType(planningType: string): AgentConfig | undefined {
-  const configs = getAgentConfigs();
-  return Object.values(configs).find((c) => c.defaultForPlanningType === planningType);
 }
 
 /**

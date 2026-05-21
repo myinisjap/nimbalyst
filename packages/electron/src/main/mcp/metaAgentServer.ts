@@ -337,7 +337,7 @@ function createMetaAgentMcpServer(
               },
               agentConfig: {
                 type: "string",
-                description: "Optional name or ID of a saved agent config preset to use for this session. When omitted, falls back to any preset marked as default for the inferred planning type, then to the global default.",
+                description: "Optional name or ID of a saved agent config preset to use for this session. When omitted, falls back to the global default.",
               },
             },
             required: ["prompt"],

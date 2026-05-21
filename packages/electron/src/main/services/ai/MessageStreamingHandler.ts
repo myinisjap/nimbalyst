@@ -1152,7 +1152,6 @@ export class MessageStreamingHandler {
             envVars: cfg.envVars,
             systemPromptPath: cfg.systemPromptPath,
             effortLevel: cfg.effortLevel,
-            customBinaryPath: cfg.customBinaryPath,
           };
         })(),
 

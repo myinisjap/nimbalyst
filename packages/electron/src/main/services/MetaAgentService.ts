@@ -7,7 +7,7 @@ import type { AIProviderType } from '@nimbalyst/runtime/ai/server/types';
 import { ModelIdentifier } from '@nimbalyst/runtime/ai/server/types';
 import { AISessionsRepository, AgentMessagesRepository, SessionFilesRepository } from '@nimbalyst/runtime';
 import { getSessionStateManager } from '@nimbalyst/runtime/ai/server/SessionStateManager';
-import { getDefaultAIModel, getAgentConfigs, getAgentConfigForPlanningType } from '../utils/store';
+import { getDefaultAIModel, getAgentConfigs } from '../utils/store';
 import { toMillis } from '../utils/timestampUtils';
 import { createWorktreeStore } from './WorktreeStore';
 import { GitWorktreeService } from './GitWorktreeService';
@@ -87,9 +87,7 @@ interface SpawnSessionArgs {
    * caller's workstream.
    */
   isolated?: boolean;
-  /** Name or ID of an agent config preset to use for this session. When omitted,
-   *  falls back to the config with defaultForPlanningType matching the session
-   *  type if one exists, then to the global default. */
+  /** Name or ID of an agent config preset to use for this session. Falls back to the global default when omitted. */
   agentConfig?: string;
 }
 
@@ -530,7 +528,7 @@ export class MetaAgentService {
     let effectiveModel =
       args.model ?? (args.inheritModel ? parent.model ?? undefined : undefined);
 
-    // Resolve agent config: explicit name/id wins, then fall back to planning-type default
+    // Resolve agent config: explicit name/id wins, then global default
     let resolvedAgentConfigId: string | undefined;
     if (args.agentConfig) {
       const allConfigs = Object.values(getAgentConfigs());

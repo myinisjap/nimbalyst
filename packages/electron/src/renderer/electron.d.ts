@@ -1117,9 +1117,9 @@ interface ElectronAPI {
 
   // Agent configuration presets
   agentConfigs: {
-    list: () => Promise<Record<string, { id: string; name: string; tags?: string[]; defaultForPlanningType?: string; provider: string; model: string; envVars?: Record<string, string>; systemPromptPath?: string; effortLevel?: string; customBinaryPath?: string; createdAt: number; updatedAt: number }>>;
-    get: (id: string) => Promise<{ id: string; name: string; provider: string; model: string; [key: string]: unknown } | null>;
-    save: (config: { id: string; name: string; provider: string; model: string; [key: string]: unknown }) => Promise<{ id: string; name: string; provider: string; model: string; [key: string]: unknown }>;
+    list: () => Promise<Record<string, { id: string; name: string; tags?: string[]; provider: string; model: string; envVars?: Record<string, string>; systemPromptPath?: string; effortLevel?: string; createdAt: number; updatedAt: number }>>;
+    get: (id: string) => Promise<{ id: string; name: string; tags?: string[]; provider: string; model: string; envVars?: Record<string, string>; systemPromptPath?: string; effortLevel?: string; createdAt: number; updatedAt: number } | null>;
+    save: (config: { id: string; name: string; tags?: string[]; provider: string; model: string; envVars?: Record<string, string>; systemPromptPath?: string; effortLevel?: string; createdAt: number; updatedAt: number }) => Promise<{ id: string; name: string; tags?: string[]; provider: string; model: string; envVars?: Record<string, string>; systemPromptPath?: string; effortLevel?: string; createdAt: number; updatedAt: number }>;
     delete: (id: string) => Promise<void>;
   };
 

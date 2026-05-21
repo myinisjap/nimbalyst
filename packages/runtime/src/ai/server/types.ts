@@ -62,7 +62,6 @@ export interface DocumentContext {
     envVars?: Record<string, string>;
     systemPromptPath?: string;
     effortLevel?: string;
-    customBinaryPath?: string;
   };
   /** Identifies the origin of this message when it comes from an automated source (e.g. 'wakeup_resume'). */
   promptOrigin?: string;
