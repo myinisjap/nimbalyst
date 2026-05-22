@@ -74,6 +74,7 @@ A concise reference of all features in the product. Keep this up to date as feat
 - Plan mode toggle (Shift+Tab)
 - Effort level selector (low/medium/high/max)
 - Model selector (per-session or per-workstream)
+- Agent config presets (named bundles of provider/model/effort/env vars/system prompt; selectable when starting sessions from history, tracker items, or via `agentConfig` parameter on `spawn_session`)
 - Context window usage display with pace tracking
 - Files-edited sidebar with per-session scope
 - Pending review banner (approve/reject AI changes)
@@ -299,6 +300,7 @@ A concise reference of all features in the product. Keep this up to date as feat
 - Global: theme, AI providers, MCP servers, notifications, sync/account, shared links, advanced, beta features
 - Per-workspace: AI provider override, agent permissions, team, tracker config, extensions
 - Claude Code: custom executable path, environment variables, effort slider, plan mode, auto-commit, extended context
+- Agent Configs: named presets (provider, model, effort level, env var overrides, system prompt path, tags) selectable when launching sessions
 - Multi-account support (add/remove accounts, per-project binding)
 - Release channel selection (stable / beta / alpha)
 - Document history retention
