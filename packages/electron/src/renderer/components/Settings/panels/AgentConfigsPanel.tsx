@@ -367,14 +367,8 @@ export function AgentConfigsPanel() {
     };
 
     try {
-      const newConfigs = { ...configs };
-      const configsToPersist: AgentConfig[] = [];
-      newConfigs[toSave.id] = toSave;
-
-      // Persist all modified configs to main process
-      await Promise.all(configsToPersist.map(c => window.electronAPI.agentConfigs.save(c)));
       await window.electronAPI.agentConfigs.save(toSave);
-      setConfigs(newConfigs);
+      setConfigs({ ...configs, [toSave.id]: toSave });
       setEditingId(null);
       setEditingConfig(null);
     } catch (error) {
